@@ -1,0 +1,221 @@
+<!--
+  @author            : salihcendik
+  @last modified on  : 08-08-2023
+  @last modified by  : salihcendik
+-->
+<apex:page standardController="Account" extensions="ActivityReportPDFController" standardStylesheets="false" sidebar="false" renderAs="pdf" applyBodyTag="false" showHeader="false" applyHtmlTag="false" contentType="text/html;charset=UTF-8">  
+    
+    <apex:outputPanel layout="none" rendered="{!!activityDatesFullfilled || activites.size = 0}">
+        <apex:outputText style="font-family : Arial Unicode MS; font-size:20px; font-weight:bold; color:red; border-bottom:solid 2px red" value="PDF'i görüntülemek için Account üzerindeki Activity Report Start Date/End Date alanları dolu olmalı ve ilgili activity kayıtları bulunmalıdır. Lütfen kontrol ediniz."/>
+    </apex:outputPanel>
+    
+    <apex:outputPanel layout="none" rendered="{!activityDatesFullfilled && activites.size > 0}"> 
+    <html>
+        <head>
+            <style type="text/css" media="print">
+                <!-- background image and texts in box -->
+                #box {
+                top: 0;
+                padding-top: 0 !important;      
+                position:absolute;
+                width:820px;
+                height:1056px;
+                margin:0px;
+                }
+                #box img {
+                position:absolute;
+                width:100%;
+                height:100%;
+                }
+                
+                <!-- Don't put header and footer to first page -->
+                @page:first { 
+                margin-top: 0px;
+                margin-bottom: 0px;
+                margin-left: 0px;
+                margin-right: 0px;
+                @top{content: element(box)}
+                @top-left{content: element(box)}
+                @center{content: element(box)}
+                @bottom-center{content: element(box)}
+                }
+                
+                <!-- put header and footer to pages -->
+                @page{
+                    margin-top:18%;
+                    margin-left:0%;
+                    margin-right:0%;
+                    margin-bottom:10%;
+                    @top-center {content: element(header);}
+                    @bottom-center {content: element(footer);} 
+                }
+                
+                div.header {
+                    width: 855px;
+                    height: 600px;
+                    position: running(header);
+                }
+                
+                div.footer {      
+                    position: running(footer);
+                }  
+                
+                <!-- table configurations -->
+                .tableStyle{
+                border: 1px solid gray;
+                border-width: 1px 1px 0px 0px;
+                border-collapse: collapse;
+                }
+                
+                .tableHeader{
+                background-color:#d4d9d6;
+                border: 1px solid gray;
+                border-width: 0px 0px 1px 1px;
+                color:black;
+                }
+                
+                .tableCell{
+                border: 1px solid gray;
+                border-width: 0px 0px 1px 1px;
+                }
+
+                body{
+                    font-family : Arial Unicode MS;
+                    padding: 20px;
+                    font-size: 11pt;
+                }
+
+                .pieChart{
+                    margin-top:15px;
+                    padding: 15px;
+                    text-align: center
+                }
+
+                .dataTable{
+                    margin-top:10px;
+                    page-break-inside : avoid;
+                }
+
+                .coverHeaderAccountName{
+                    top:53%;
+                    position:absolute;
+                    width:100%;
+                    height:100%;
+                    color:black;
+                    line-height:50px;
+                    text-align: center;
+                    font-size:35px; 
+                    font-weight:bold;
+                    overflow-wrap: break-word;
+                }
+
+                .coverHeaderText{
+                    top:60%;
+                    position:absolute;
+                    width:100%;
+                    height:100%;
+                    color:black;
+                    line-height:35px; 
+                    text-align: center;
+                    font-size:25px; 
+                    font-weight:bold;
+                    overflow-wrap: break-word;
+                }
+
+                .coverDateField{
+                    font-size:16px; 
+                    position:fixed; 
+                    margin-top: 90px; 
+                    margin-left:620px;
+                }
+            </style>
+        </head>
+
+        <!-- background image and texts -->
+        <div id="box">
+            <img src="{!URLFOR($Resource.ActivityReportPDF_images,"ActivityReportPDF_images/Background.jpg")}"/>
+            
+            <div class="coverHeaderAccountName">
+                {!Account.Name}
+            </div>
+            <div class="coverHeaderText">
+                {!monthNamesInActivity} {!YEAR(TODAY())} <br/> AKTİVİTE DÖKÜMÜ
+            </div>
+        </div>
+        
+        <!--
+        <div class="coverDateField">
+            <apex:outputText value="{0,date,dd.MM.yyyy}">
+                <apex:param value="{!TODAY()}" />
+            </apex:outputText>
+        </div>
+        -->
+        
+        <!-- header and footer image -->
+        <div class="header">
+            <center><img src="{!URLFOR($Resource.ActivityReportPDF_images,"ActivityReportPDF_images/Header.jpg")}" width="100%"/></center>
+        </div>
+        <!--
+        <div class="footer" name="footer">
+            <center><img src="{!URLFOR($Resource.SecureFuture_images,"SecureFuturePDF_images/SecureFuture_Footer.png")}" width="100%"/></center>
+        </div>
+        -->
+        <!-- main page -->
+        <body>
+            <div style="page-break-after:always;"></div>
+            <br/><br/>
+            
+            <div style="font-size:16pt;margin-top:0px;font-weight:bold;">
+                <apex:outputText value="{!(Account.Name)}"/>
+            </div>
+
+            <div class="dataTable">
+                <table width="100%" cellpadding="5" cellspacing="0" class="tableStyle">
+                    <tbody>
+                            <thead>
+                                <tr>
+                                    <th class="tableHeader" style="white-space: nowrap;">Case Owner</th>
+                                    <th class="tableHeader">Subject</th>
+                                    <th class="tableHeader">Comments</th>
+                                    <th class="tableHeader">Date Opened</th>
+                                    <th class="tableHeader" style="white-space: nowrap;">SLA Time</th>
+                                </tr>
+                            </thead>
+
+                            <apex:variable value="{!0.0}" var="lineNumber" />
+                            <apex:variable value="{!0.0}" var="totalSLA"/>
+                            <apex:repeat var="activity" value="{!activites}">
+                                    <tr>
+                                        <td class="tableCell">{!activity.OwnerName}</td>
+                                        <td class="tableCell">{!activity.Subject}</td>
+                                        <td class="tableCell">{!activity.Comments}</td>
+                                        <td class="tableCell">
+                                            <apex:outputText value="{0,date,dd.MM.yyyy}">
+                                                <apex:param value="{!activity.DateOpened}" />
+                                            </apex:outputText>
+                                        </td>
+                                        <td class="tableCell">
+                                            <apex:outputText value="{!activity.SLATime} sa"></apex:outputText>
+                                        </td>
+                                    </tr>
+                                    <apex:variable var="totalSLA" value="{!totalSLA + activity.SLATime}" />
+                                    <apex:variable var="lineNumber" value="{!lineNumber + 1}" />
+                            </apex:repeat>
+                            <tr class="tableHeader">
+                                <td class="tableCell">Total</td>
+                                <td class="tableCell">{!lineNumber}</td>
+                                <td class="tableCell">{!lineNumber}</td>
+                                <td class="tableCell"></td>
+                                <td class="tableCell">{!totalSLA} sa</td>
+                            </tr>
+                    </tbody>
+                </table>
+            </div>
+             
+            <div class="pieChart">
+                <img src="https://image-charts.com/chart?{!pieChartParameter}" alt="Pie Chart" />
+            </div>
+        </body>
+    </html>
+    </apex:outputPanel>
+</apex:page>
